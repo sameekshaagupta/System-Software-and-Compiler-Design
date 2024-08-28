@@ -15,7 +15,7 @@ bool isE(const string& str, int& index, string& derivation) {
     derivation += "E -> T E'\n";
     if (isT(str, index, derivation)) {
         if (isEP(str, index, derivation)) {
-            return true;                                                                                                                                                                                                                                                                
+            return true;
         }
     }
     return false;
