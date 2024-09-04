@@ -1,175 +1,117 @@
 #include <iostream>
-#include <map>
-#include <set>
-#include <vector>
-#include <string>
-#include <sstream>
+#include <cctype>
+#include <cstring>
+
+#define MAX 10
 
 using namespace std;
 
-map<string, vector<vector<string>>> rules;
-map<string, set<string>> first;
-map<string, set<string>> follow;
-set<string> nonTerminals;
-set<string> terminals;
+struct Grammar {
+    char nonTerminal;
+    char production[MAX][MAX];
+    int productionCount;
+};
 
-set<string> getFirst(const string& symbol) {
-    if (terminals.find(symbol) != terminals.end()) {
-        return {symbol};
-    }
+char firstSet[MAX][MAX];
+char followSet[MAX][MAX];
+Grammar grammar[MAX];
+int n;
 
-    if (symbol == "ε") {
-        return {"ε"};
-    }
+void findFirst(char first[], char nonTerminal) {
+    for (int i = 0; i < n; i++) {
+        if (grammar[i].nonTerminal == nonTerminal) {
+            for (int j = 0; j < grammar[i].productionCount; j++) {
+                char symbol = grammar[i].production[j][0];
 
-    if (first.find(symbol) != first.end()) {
-        return first[symbol];
-    }
-
-    set<string> result;
-
-    for (const auto& production : rules[symbol]) {
-        bool epsilonFound = true;
-
-        for (const auto& part : production) {
-            set<string> partFirst = getFirst(part);
-
-            result.insert(partFirst.begin(), partFirst.end());
-
-            if (partFirst.find("ε") == partFirst.end()) {
-                epsilonFound = false;
-                break;
+                if (symbol == 'e') {  // Check for epsilon
+                    strcat(first, "e");
+                } else if (islower(symbol)) {
+                    strncat(first, &symbol, 1);
+                } else {
+                    char tempFirst[MAX] = "";
+                    findFirst(tempFirst, symbol);
+                    strcat(first, tempFirst);
+                }
             }
         }
-
-        if (epsilonFound) {
-            result.insert("ε");
-        }
     }
-
-    first[symbol] = result;
-    return result;
 }
 
-set<string> getFollow(const string& symbol) {
-    if (follow.find(symbol) != follow.end()) {
-        return follow[symbol];
+void findFollow(char follow[], char nonTerminal) {
+    if (nonTerminal == grammar[0].nonTerminal) {
+        strcat(follow, "$");
     }
 
-    set<string> result;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < grammar[i].productionCount; j++) {
+            char* pos = strchr(grammar[i].production[j], nonTerminal);
 
-    if (symbol == "S") {
-        result.insert("$");
-    }
-
-    for (const auto& [nt, productions] : rules) {
-        for (const auto& production : productions) {
-            for (size_t i = 0; i < production.size(); ++i) {
-                if (production[i] == symbol) {
-                    if (i + 1 < production.size()) {
-                        set<string> nextFirst = getFirst(production[i + 1]);
-                        result.insert(nextFirst.begin(), nextFirst.end());
-                        result.erase("ε");
-
-                        if (nextFirst.find("ε") == nextFirst.end() || terminals.find(production[i + 1]) != terminals.end()) {
-                            continue;
-                        }
+            if (pos != nullptr) {
+                if (*(pos + 1) != '\0') {
+                    char nextSymbol = *(pos + 1);
+                    if (nextSymbol == 'e') {
+                        char tempFollow[MAX] = "";
+                        findFollow(tempFollow, grammar[i].nonTerminal);
+                        strcat(follow, tempFollow);
+                    } else if (islower(nextSymbol)) {
+                        strncat(follow, &nextSymbol, 1);
+                    } else {
+                        char tempFirst[MAX] = "";
+                        findFirst(tempFirst, nextSymbol);
+                        strcat(follow, tempFirst);
                     }
-
-                    if (i + 1 == production.size() || first[production[i + 1]].find("ε") != first[production[i + 1]].end()) {
-                        set<string> ntFollow = getFollow(nt);
-                        result.insert(ntFollow.begin(), ntFollow.end());
+                } else {
+                    if (grammar[i].nonTerminal != nonTerminal) {
+                        char tempFollow[MAX] = "";
+                        findFollow(tempFollow, grammar[i].nonTerminal);
+                        strcat(follow, tempFollow);
                     }
                 }
             }
         }
-    }
-
-    follow[symbol] = result;
-    return result;
-}
-
-void readGrammar() {
-    string line;
-
-    while (getline(cin, line) && !line.empty()) {
-        istringstream iss(line);
-        string left, arrow, right;
-        iss >> left >> arrow;
-
-        if (arrow != "->") {
-            cerr << "Error: Expected '->' in production rule." << endl;
-            continue;
-        }
-
-        nonTerminals.insert(left);
-
-        vector<string> production;
-        while (iss >> right) {
-            if (right == "|") {
-                if (!production.empty()) {
-                    rules[left].push_back(production);
-                    production.clear();
-                }
-            } else {
-                production.push_back(right);
-            }
-        }
-
-        if (!production.empty()) {
-            rules[left].push_back(production);
-        }
-    }
-
-    for (const auto& [nt, productions] : rules) {
-        nonTerminals.insert(nt);
-
-        for (const auto& production : productions) {
-            for (const auto& symbol : production) {
-                if (nonTerminals.find(symbol) == nonTerminals.end() && symbol != "ε") {
-                    terminals.insert(symbol);
-                }
-            }
-        }
-    }
-}
-
-void calculateFirst() {
-    for (const auto& nt : nonTerminals) {
-        getFirst(nt);
-    }
-}
-
-void calculateFollow() {
-    for (const auto& nt : nonTerminals) {
-        getFollow(nt);
-    }
-}
-
-void printSets() {
-    cout << "First Sets:\n";
-    for (const auto& [nt, set] : first) {
-        cout << nt << ": ";
-        for (const auto& symbol : set) {
-            cout << symbol << " ";
-        }
-        cout << endl;
-    }
-
-    cout << "Follow Sets:\n";
-    for (const auto& [nt, set] : follow) {
-        cout << nt << ": ";
-        for (const auto& symbol : set) {
-            cout << symbol << " ";
-        }
-        cout << endl;
     }
 }
 
 int main() {
-    readGrammar();
-    calculateFirst();
-    calculateFollow();
-    printSets();
+    cout << "Enter the number of non-terminals: ";
+    cin >> n;
+
+    for (int i = 0; i < n; i++) {
+        cout << "Enter the non-terminal: ";
+        cin >> grammar[i].nonTerminal;
+
+        cout << "Enter the number of productions for " << grammar[i].nonTerminal << ": ";
+        cin >> grammar[i].productionCount;
+
+        for (int j = 0; j < grammar[i].productionCount; j++) {
+            cout << "Enter production " << j + 1 << " for " << grammar[i].nonTerminal << " (use 'e' for epsilon): ";
+            cin >> grammar[i].production[j];
+        }
+    }
+
+    for (int i = 0; i < n; i++) {
+        char first[MAX] = "";
+        findFirst(first, grammar[i].nonTerminal);
+        strcpy(firstSet[i], first);
+
+        char follow[MAX] = "";
+        findFollow(follow, grammar[i].nonTerminal);
+        strcpy(followSet[i], follow);
+    }
+
+    for (int i = 0; i < n; i++) {
+        cout << "\nFirst(" << grammar[i].nonTerminal << ") = { ";
+        for (int j = 0; j < strlen(firstSet[i]); j++) {
+            cout << firstSet[i][j] << " ";
+        }
+        cout << "}";
+
+        cout << "\nFollow(" << grammar[i].nonTerminal << ") = { ";
+        for (int j = 0; j < strlen(followSet[i]); j++) {
+            cout << followSet[i][j] << " ";
+        }
+        cout << "}\n";
+    }
+
     return 0;
 }
