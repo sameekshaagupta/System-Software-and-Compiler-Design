@@ -159,5 +159,4 @@ int main() {
         printf("The string cannot be parsed.\n");
     }
 
-    return 0;
 }
