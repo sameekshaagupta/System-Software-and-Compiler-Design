@@ -1,0 +1,8 @@
+int a = 5 * 2;      
+int b = 16 / 4;    
+int c = x + 0;     
+int d = 7 - 0;      
+int e = y * 1;      
+int f = 4 + 3;      
+int g = z * 8;      
+int h = w / 2;      
